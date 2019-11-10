@@ -8,11 +8,15 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.tokenize import RegexpTokenizer
+from nltk.stem import PorterStemmer
+from nltk.tokenize import sent_tokenize, word_tokenize
 
 from sklearn.model_selection import train_test_split
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.metrics import classification_report
 from sklearn.pipeline import Pipeline
 
@@ -52,6 +56,23 @@ def tokenize(text):
     text_counts = cv.fit_transform(text)
     return text_counts    
 
+class TermNormalizer():
+    def fit(self, X_train, Y_train):
+        return self
+
+    def transform(self, X_train):
+        """
+            Reference : https://medium.com/@datamonsters/text-preprocessing-in-python-steps-tools-and-examples-bf025f872908
+            """
+        ps = PorterStemmer()
+        # Omit numbers, convert to lowercase, and then normalize terms
+        transformed = list(
+            map(lambda text:' '.join(map(lambda word: ps.stem(word), text.split())), 
+                map(lambda text: text.lower(), 
+                    map(lambda text: re.sub(r'\d+', '', text), X_train)))) 
+
+        return transformed
+
 def build_model():
     """To build ML model instance. Since there are mutliple target variables,
         to use MultiOutputClassifier.
@@ -62,10 +83,11 @@ def build_model():
     """
     token = RegexpTokenizer(r'[a-zA-Z0-9]+')
     model = Pipeline([
-        ('vect', CountVectorizer(
-        lowercase=True, stop_words='english', ngram_range = (1,1), tokenizer = token.tokenize))
-        ,('clf',MultiOutputClassifier(LogisticRegression()))
-    ])
+         ('norm',TermNormalizer())
+        ,('vect', CountVectorizer(lowercase=True, stop_words='english', tokenizer = token.tokenize))
+        ,('tfidf',TfidfTransformer())
+        ,('clf', MultiOutputClassifier(DecisionTreeClassifier()))
+        ])
     return model
 
 
