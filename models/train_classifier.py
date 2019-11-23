@@ -6,19 +6,21 @@ import pickle
 
 import nltk
 from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
 from nltk.tokenize import RegexpTokenizer
-from nltk.stem import PorterStemmer
-from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
+nltk.download('wordnet')
+nltk.download('stopwords')
 
 from sklearn.model_selection import train_test_split
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.metrics import classification_report
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import GridSearchCV
+from sklearn.tree import DecisionTreeClassifier
 
 
 def load_data(database_filepath):
@@ -44,34 +46,23 @@ def load_data(database_filepath):
     return X, Y, category_names
 
 def tokenize(text):
-    """Tokenize series of texts and build bag of words as DataFrame.
+    """Tokenize text and return array of tokens
+        Reference : https://medium.com/@datamonsters/text-preprocessing-in-python-steps-tools-and-examples-bf025f872908
     Args:
         text(array-like): array of text messages
     Return:
-        text_counts(DataFrame): bag of words
+        list: list of tokenized tokens
     """
-    token = RegexpTokenizer(r'[a-zA-Z0-9]+')
-    cv = CountVectorizer(
-        lowercase=True, stop_words='english', ngram_range = (1,1), tokenizer = token.tokenize)
-    text_counts = cv.fit_transform(text)
-    return text_counts    
-
-class TermNormalizer():
-    def fit(self, X_train, Y_train):
-        return self
-
-    def transform(self, X_train):
-        """
-            Reference : https://medium.com/@datamonsters/text-preprocessing-in-python-steps-tools-and-examples-bf025f872908
-            """
-        ps = PorterStemmer()
-        # Omit numbers, convert to lowercase, and then normalize terms
-        transformed = list(
-            map(lambda text:' '.join(map(lambda word: ps.stem(word), text.split())), 
-                map(lambda text: text.lower(), 
-                    map(lambda text: re.sub(r'\d+', '', text), X_train)))) 
-
-        return transformed
+    reg_tokenizer = RegexpTokenizer(r'[a-zA-Z0-9]+')
+    lem = WordNetLemmatizer()
+    reg_tokenizer = RegexpTokenizer(r'[a-zA-Z0-9]+')
+    lem = WordNetLemmatizer()
+    lowered = text.lower() # convert all character to lower case
+    number_removed = re.sub(r'\d+','',lowered) # remove numbers
+    tokenized = reg_tokenizer.tokenize(number_removed) # tokenize sentence into words with RegExpTokenizer
+    lemmatized = map(lambda token:lem.lemmatize(token), tokenized) # lemmatize
+    stopwords_removed = [token for token in lemmatized if token not in stopwords.words('english')] # remove stopwords
+    return list(stopwords_removed)
 
 def build_model():
     """To build ML model instance. Since there are mutliple target variables,
@@ -79,22 +70,23 @@ def build_model():
     Args:
         None
     Return:
-        model(MultiOutputClassifier):ML model instance generated.
+        model(GridSearchCV):ML model instance generated.
     """
-    token = RegexpTokenizer(r'[a-zA-Z0-9]+')
-    model = Pipeline([
-         ('norm',TermNormalizer())
-        ,('vect', CountVectorizer(lowercase=True, stop_words='english', tokenizer = token.tokenize))
+ 
+    pipeline = Pipeline([
+        ('vect', CountVectorizer(lowercase=True, stop_words='english', tokenizer = tokenize))
         ,('tfidf',TfidfTransformer())
         ,('clf', MultiOutputClassifier(DecisionTreeClassifier()))
         ])
+    parameters = {'clf__estimator__max_depth':[3,5,7]}
+    model = GridSearchCV(pipeline, parameters, cv=5, iid=False)
     return model
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
     """To print evaluation result of ML model.
     Args:
-        model(MultiOutputClassifier): fitted instance of ML model
+        model(GridSearchCV): fitted instance of ML model
         X_test(DataFrame): test data of explanatory variables
         Y_test(DataFrame): test data of target variables
     Return:
