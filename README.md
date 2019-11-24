@@ -36,7 +36,7 @@ disaster_response/
 3. Go to http://0.0.0.0:3001/
 
 ### Screenshot of the web app:
-![screenshot](screenshot.png)
+![Screenshot of web application](webapp_screenshot.png)
 
 ### Author:
 Ryo Nitta
