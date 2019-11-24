@@ -2,8 +2,10 @@ import json
 import plotly
 import pandas as pd
 
+import nltk
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
+nltk.download('punkt')
 
 from flask import Flask
 from flask import render_template, request, jsonify
@@ -40,8 +42,17 @@ def index():
     
     # extract data needed for visuals
     # TODO: Below is an example - modify to extract data for your own visuals
-    genre_counts = df.groupby('genre').count()['message']
+    genre_counts = df.groupby('genre').count()['message'].sort_values(ascending=True)
     genre_names = list(genre_counts.index)
+
+    # my graph
+    df_melted = df.melt(id_vars=['id','message','original','genre'] \
+        ,var_name='category',value_name='count')
+    df_grouped = df_melted.groupby(by='category')['count'].sum()
+    df_grouped_sorted = df_grouped.sort_values(ascending=False)
+
+    category_counts = list(df_grouped_sorted.values)
+    category_names = list(df_grouped_sorted.index)
     
     # create visuals
     # TODO: Below is an example - modify to create your own visuals
@@ -49,8 +60,9 @@ def index():
         {
             'data': [
                 Bar(
-                    x=genre_names,
-                    y=genre_counts
+                    x=genre_counts,
+                    y=genre_names,
+                    orientation='h'
                 )
             ],
 
@@ -62,6 +74,25 @@ def index():
                 'xaxis': {
                     'title': "Genre"
                 }
+            }
+        },
+        {
+            'data': [
+                Bar(
+                    x=category_names,
+                    y=category_counts
+                )
+            ],
+
+            'layout':{
+                'title': 'Distribution of Categories',
+                'yaxis':{
+                    'title':'Count'
+                },
+                'xaxis':{
+                    'title':'Category'
+                }
+
             }
         }
     ]
